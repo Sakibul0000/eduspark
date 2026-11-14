@@ -1,0 +1,185 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated student profile stored in Firestore",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "photoUrl": { "type": "string", "maxLength": 120000 },
+        "bio": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "fullName", "email", "createdAt", "updatedAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Educational course catalog entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "instructor": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "thumbnail": { "type": "string", "maxLength": 500 },
+        "difficulty": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "durationMinutes": { "type": "number" },
+        "lessonsCount": { "type": "number" },
+        "popularity": { "type": "number" }
+      },
+      "required": ["id", "title", "category", "instructor", "description", "difficulty", "durationMinutes", "lessonsCount", "popularity"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Individual lesson within a course",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "courseId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "order": { "type": "number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "durationMinutes": { "type": "number" },
+        "summary": { "type": "string", "maxLength": 500 },
+        "content": { "type": "string", "maxLength": 15000 }
+      },
+      "required": ["id", "courseId", "order", "title", "durationMinutes", "content"]
+    },
+    "Enrollment": {
+      "title": "Enrollment",
+      "description": "Student enrollment record linking userId and courseId",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "courseId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "enrolledAt": { "type": "string", "format": "date-time" },
+        "lastAccessedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "courseId", "status", "enrolledAt", "lastAccessedAt"]
+    },
+    "QuizQuestion": {
+      "title": "QuizQuestion",
+      "description": "Multiple choice question belonging to a quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "quizId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "order": { "type": "number" },
+        "prompt": { "type": "string", "maxLength": 1000 },
+        "options": { "type": "array" },
+        "correctIndex": { "type": "number" },
+        "explanation": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "quizId", "order", "prompt", "options", "correctIndex", "explanation"]
+    },
+    "QuizAttempt": {
+      "title": "QuizAttempt",
+      "description": "Completed quiz submission by a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "quizId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "quizTitle": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "score": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "percentage": { "type": "number" },
+        "durationSeconds": { "type": "number" },
+        "answers": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "quizId", "quizTitle", "score", "totalQuestions", "percentage", "durationSeconds", "answers", "createdAt"]
+    },
+    "LearningProgress": {
+      "title": "LearningProgress",
+      "description": "Per-course lesson completion and study time for a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 260, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "courseId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "completedLessonIds": { "type": "array" },
+        "lastLessonId": { "type": "string", "maxLength": 128 },
+        "totalLessons": { "type": "number" },
+        "progressPercent": { "type": "number" },
+        "minutesSpent": { "type": "number" },
+        "activityDates": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "courseId", "completedLessonIds", "totalLessons", "progressPercent", "minutesSpent", "activityDates", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "AI Study Assistant message persisted for a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string", "minLength": 1, "maxLength": 15000 },
+        "courseContext": { "type": "string", "maxLength": 180 },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "role", "content", "createdAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences for theme, notifications, and daily learning goal",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "emailNotifications": { "type": "boolean" },
+        "studyReminders": { "type": "boolean" },
+        "weeklyDigest": { "type": "boolean" },
+        "dailyGoalMinutes": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "theme", "emailNotifications", "studyReminders", "weeklyDigest", "dailyGoalMinutes", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student profile documents keyed by Firebase Auth UID"
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Publicly readable course catalog"
+    },
+    "/lessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/Lesson" },
+      "description": "Publicly readable course lesson content"
+    },
+    "/enrollments/{enrollmentId}": {
+      "schema": { "$ref": "#/entities/Enrollment" },
+      "description": "Student course enrollments owned by userId"
+    },
+    "/quizQuestions/{questionId}": {
+      "schema": { "$ref": "#/entities/QuizQuestion" },
+      "description": "Publicly readable quiz questions"
+    },
+    "/quizAttempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/QuizAttempt" },
+      "description": "Student quiz submissions owned by userId"
+    },
+    "/learningProgress/{progressId}": {
+      "schema": { "$ref": "#/entities/LearningProgress" },
+      "description": "Per-course lesson completion and study minutes owned by userId"
+    },
+    "/chatHistory/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "AI Study Assistant messages owned by userId"
+    },
+    "/userSettings/{userId}": {
+      "schema": { "$ref": "#/entities/UserSettings" },
+      "description": "User preferences owned by userId"
+    }
+  }
+}

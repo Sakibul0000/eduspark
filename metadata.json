@@ -1,0 +1,8 @@
+{
+  "name": "EduSpark AI",
+  "description": "Intelligent Learning Management Platform with interactive courses, MCQ quizzes, progress analytics, and an AI Study Tutor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,101 @@
+/**
+ * Security Rule Verification Suite for EduSpark AI ("Dirty Dozen" Payloads)
+ * Designed for @firebase/rules-unit-testing when running against a local Firestore emulator.
+ */
+
+export const DIRTY_DOZEN_PAYLOADS = [
+  {
+    name: '1. Unauthenticated read of private profile',
+    method: 'GET',
+    path: 'users/student_123',
+    auth: null,
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '2. Cross-user profile read (PII leak)',
+    method: 'GET',
+    path: 'users/victim_uid',
+    auth: { uid: 'attacker_uid', email_verified: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '3. Unverified email spoof write',
+    method: 'CREATE',
+    path: 'users/student_123',
+    auth: { uid: 'student_123', email_verified: false },
+    payload: { uid: 'student_123', fullName: 'Spoof User', email: 'spoof@example.com' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '4. Shadow field injection on user profile',
+    method: 'CREATE',
+    path: 'users/student_123',
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { uid: 'student_123', fullName: 'Alex', email: 'alex@example.com', isAdmin: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '5. Cross-user enrollment spoofing',
+    method: 'CREATE',
+    path: 'enrollments/victim_cs-algorithms',
+    auth: { uid: 'attacker_uid', email_verified: true },
+    payload: { id: 'victim_cs-algorithms', userId: 'victim_uid', courseId: 'cs-algorithms', status: 'active' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '6. Client-forged timestamp on enrollment',
+    method: 'CREATE',
+    path: 'enrollments/student_123_prog-python',
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { id: 'student_123_prog-python', userId: 'student_123', courseId: 'prog-python', status: 'active', enrolledAt: '2020-01-01T00:00:00Z' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '7. Unbounded list scraping on enrollments',
+    method: 'LIST',
+    path: 'enrollments',
+    auth: { uid: 'student_123', email_verified: true },
+    query: 'unfiltered',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '8. ID poisoning attack on quizAttempts',
+    method: 'CREATE',
+    path: `quizAttempts/${'a'.repeat(160)}!@#`,
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { id: 'bad', userId: 'student_123', quizId: 'quiz-python', score: 5, totalQuestions: 5, percentage: 100 },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '9. Score tampering update on immutable quizAttempt',
+    method: 'UPDATE',
+    path: 'quizAttempts/attempt_1',
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { percentage: 100, score: 5 },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '10. Immutable courseId mutation on learningProgress',
+    method: 'UPDATE',
+    path: 'learningProgress/student_123_prog-python',
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { courseId: 'ai-ml-foundations' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '11. Value poisoning on userSettings',
+    method: 'UPDATE',
+    path: 'userSettings/student_123',
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { theme: 'invalid-theme', dailyGoalMinutes: 99999 },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '12. Catalog tampering on courses',
+    method: 'UPDATE',
+    path: 'courses/cs-algorithms',
+    auth: { uid: 'student_123', email_verified: true },
+    payload: { title: 'Hacked Course' },
+    expected: 'PERMISSION_DENIED',
+  },
+];

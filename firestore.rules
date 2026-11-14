@@ -1,0 +1,281 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidCourseId(courseId) {
+      return courseId in [
+        'cs-algorithms',
+        'prog-python',
+        'ai-ml-foundations',
+        'ds-inference',
+        'web-ts-react',
+        'math-linear-alg',
+        'ai-llm-systems',
+        'cs-operating-sys'
+      ];
+    }
+
+    function isValidQuizId(quizId) {
+      return quizId in [
+        'quiz-python',
+        'quiz-dsa',
+        'quiz-ai-ml',
+        'quiz-web-ts'
+      ];
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'fullName', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'fullName', 'email', 'photoUrl', 'bio', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 120000))
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidEnrollment(data) {
+      return data.keys().hasAll(['id', 'userId', 'courseId', 'status', 'enrolledAt', 'lastAccessedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'courseId', 'status', 'enrolledAt', 'lastAccessedAt'])
+        && data.id is string && data.id.size() >= 3 && data.id.size() <= 260 && data.id.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.courseId)
+        && isValidCourseId(data.courseId)
+        && data.status in ['active', 'completed']
+        && data.enrolledAt is timestamp
+        && data.lastAccessedAt is timestamp;
+    }
+
+    function isValidQuizAttempt(data) {
+      return data.keys().hasAll(['id', 'userId', 'quizId', 'quizTitle', 'score', 'totalQuestions', 'percentage', 'durationSeconds', 'answers', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'quizId', 'quizTitle', 'score', 'totalQuestions', 'percentage', 'durationSeconds', 'answers', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.quizId)
+        && isValidQuizId(data.quizId)
+        && data.quizTitle is string && data.quizTitle.size() >= 1 && data.quizTitle.size() <= 180
+        && data.score is int && data.score >= 0 && data.score <= 20
+        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 20
+        && data.score <= data.totalQuestions
+        && data.percentage is number && data.percentage >= 0 && data.percentage <= 100
+        && data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 7200
+        && data.answers is list && data.answers.size() >= 1 && data.answers.size() <= 20
+        && data.answers[0] is int
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLearningProgress(data) {
+      return data.keys().hasAll(['id', 'userId', 'courseId', 'completedLessonIds', 'totalLessons', 'progressPercent', 'minutesSpent', 'activityDates', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'courseId', 'completedLessonIds', 'lastLessonId', 'totalLessons', 'progressPercent', 'minutesSpent', 'activityDates', 'updatedAt'])
+        && data.id is string && data.id.size() >= 3 && data.id.size() <= 260 && data.id.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.courseId)
+        && isValidCourseId(data.courseId)
+        && data.completedLessonIds is list && data.completedLessonIds.size() <= 50
+        && (data.completedLessonIds.size() == 0 || data.completedLessonIds[0] is string)
+        && (!('lastLessonId' in data) || (data.lastLessonId is string && data.lastLessonId.size() <= 128))
+        && data.totalLessons is int && data.totalLessons >= 1 && data.totalLessons <= 50
+        && data.progressPercent is number && data.progressPercent >= 0 && data.progressPercent <= 100
+        && data.minutesSpent is number && data.minutesSpent >= 0 && data.minutesSpent <= 100000
+        && data.activityDates is list && data.activityDates.size() <= 365
+        && (data.activityDates.size() == 0 || data.activityDates[0] is string)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['id', 'userId', 'role', 'content', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'role', 'content', 'courseContext', 'isDemo', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 15000
+        && (!('courseContext' in data) || (data.courseContext is string && data.courseContext.size() <= 180))
+        && (!('isDemo' in data) || data.isDemo is bool)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidUserSettings(data) {
+      return data.keys().hasAll(['userId', 'theme', 'emailNotifications', 'studyReminders', 'weeklyDigest', 'dailyGoalMinutes', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'theme', 'emailNotifications', 'studyReminders', 'weeklyDigest', 'dailyGoalMinutes', 'updatedAt'])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.theme in ['light', 'dark']
+        && data.emailNotifications is bool
+        && data.studyReminders is bool
+        && data.weeklyDigest is bool
+        && data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 5 && data.dailyGoalMinutes <= 480
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Users (Private PII - Owner Only)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if isVerifiedUser() && existing().uid == request.auth.uid;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'photoUrl', 'bio', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // 2. Public Read-Only Course Catalog, Lessons & Quiz Questions
+    match /courses/{courseId} {
+      allow get: if isValidId(courseId);
+      allow list: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /lessons/{lessonId} {
+      allow get: if isValidId(lessonId);
+      allow list: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /quizQuestions/{questionId} {
+      allow get: if isValidId(questionId);
+      allow list: if true;
+      allow create, update, delete: if false;
+    }
+
+    // 3. Enrollments (Owner-scoped)
+    match /enrollments/{enrollmentId} {
+      allow get: if isValidId(enrollmentId) && isVerifiedUser() && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && existing().userId == request.auth.uid;
+      allow create: if isValidId(enrollmentId)
+        && isVerifiedUser()
+        && isValidEnrollment(incoming())
+        && incoming().id == enrollmentId
+        && incoming().enrolledAt == request.time
+        && incoming().lastAccessedAt == request.time;
+      allow update: if isValidId(enrollmentId)
+        && isVerifiedUser()
+        && existing().userId == request.auth.uid
+        && isValidEnrollment(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().courseId == existing().courseId
+        && incoming().enrolledAt == existing().enrolledAt
+        && incoming().lastAccessedAt == request.time
+        && (
+          (incoming().status == existing().status && incoming().diff(existing()).affectedKeys().hasOnly(['lastAccessedAt'])) ||
+          (existing().status == 'active' && incoming().status == 'completed' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'lastAccessedAt'])) ||
+          (existing().status == 'completed' && incoming().status == 'active' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'lastAccessedAt']))
+        );
+      allow delete: if isValidId(enrollmentId) && isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    // 4. Quiz Attempts (Immutable once created)
+    match /quizAttempts/{attemptId} {
+      allow get: if isValidId(attemptId) && isVerifiedUser() && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && existing().userId == request.auth.uid;
+      allow create: if isValidId(attemptId)
+        && isVerifiedUser()
+        && isValidQuizAttempt(incoming())
+        && incoming().id == attemptId
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(attemptId) && isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    // 5. Learning Progress (Owner-scoped)
+    match /learningProgress/{progressId} {
+      allow get: if isValidId(progressId) && isVerifiedUser() && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && existing().userId == request.auth.uid;
+      allow create: if isValidId(progressId)
+        && isVerifiedUser()
+        && isValidLearningProgress(incoming())
+        && incoming().id == progressId
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(progressId)
+        && isVerifiedUser()
+        && existing().userId == request.auth.uid
+        && isValidLearningProgress(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().courseId == existing().courseId
+        && incoming().totalLessons == existing().totalLessons
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['completedLessonIds', 'lastLessonId', 'progressPercent', 'minutesSpent', 'activityDates', 'updatedAt']);
+      allow delete: if isValidId(progressId) && isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    // 6. Chat History (Owner-scoped, immutable messages)
+    match /chatHistory/{messageId} {
+      allow get: if isValidId(messageId) && isVerifiedUser() && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && existing().userId == request.auth.uid;
+      allow create: if isValidId(messageId)
+        && isVerifiedUser()
+        && isValidChatMessage(incoming())
+        && incoming().id == messageId
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(messageId) && isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    // 7. User Settings (Owner-scoped)
+    match /userSettings/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if isVerifiedUser() && existing().userId == request.auth.uid;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserSettings(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserSettings(incoming())
+        && incoming().userId == existing().userId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'emailNotifications', 'studyReminders', 'weeklyDigest', 'dailyGoalMinutes', 'updatedAt']);
+      allow delete: if false;
+    }
+  }
+}
